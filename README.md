@@ -26,7 +26,7 @@ Validate entries and catch errors before submission
 
 The assistant is built as a standalone component so that, in the future, it can be dropped into any portal as an embeddable widget
 
-#Demo
+# Demo
 
 This repository contains a demo web app with a mock government form (e.g. a scholarship / income certificate application) and the assistant panel.
 
