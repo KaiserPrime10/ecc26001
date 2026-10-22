@@ -16,7 +16,7 @@ Dependence on middlemen, which adds cost and errors
 
 # Solution
 
-[Project Name] is an AI assistant that sits on top of a form and helps the user:
+Awaz is an AI assistant that sits on top of a form and helps the user:
 
 Translate form fields and instructions into their regional language
 Speak answers instead of typing (voice-to-form)
@@ -25,16 +25,3 @@ Get guided step by step by a chatbot that explains each field
 Validate entries and catch errors before submission
 
 The assistant is built as a standalone component so that, in the future, it can be dropped into any portal as an embeddable widget
-
-# Demo
-
-This repository contains a demo web app with a mock government form (e.g. a scholarship / income certificate application) and the assistant panel.
-
-The demo uses mock data only. Do not enter real Aadhaar numbers or other personal data.
-
-Demo flow:
-
-Switch the form language (e.g. English → Assamese / Hindi)
-Speak a field and watch it fill in
-Upload an ID image and see OCR auto-fill
-Review validation and read-back, then submit
