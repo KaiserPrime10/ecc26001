@@ -3,17 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Awaz Widget Test Portal</title>
+    <title>State Scholarship Portal</title>
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
-            background: #f1f5f9;
+            background: #f8fafc;
             margin: 0;
             padding: 40px 20px;
-            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        h1 { color: #0f172a; margin-bottom: 8px; }
-        p { color: #475569; margin-bottom: 30px; }
+        h1 {
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+        p {
+            color: #64748b;
+            margin-top: 0;
+            margin-bottom: 30px;
+        }
     </style>
 </head>
 <body>
@@ -21,10 +30,10 @@
     <h1>State Scholarship Portal</h1>
     <p>Embeddable Voice-First Form Assistant</p>
 
-    <!-- The Awaz Widget -->
-    <awaz-widget form-id="scholarship"></awaz-widget>
+    <!-- Embed the Awaz Custom Widget -->
+    <awaz-widget></awaz-widget>
 
-    <!-- Load Widget Script -->
-    <script src="widget.js" type="module"></script>
+    <!-- Load the Widget Script -->
+    <script src="widget.js"></script>
 </body>
 </html>

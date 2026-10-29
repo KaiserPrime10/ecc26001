@@ -1,444 +1,341 @@
-class AwazWidget extends HTMLElement {
-    constructor() {
-        super();
-        this.attachShadow({ mode: 'open' });
-        
-        this.formId = this.getAttribute('form-id') || 'scholarship_v1';
-        this.selectedLanguage = 'hi';
-        this.isListening = false;
-        this.recognition = null;
-        this.schema = null;
-        this.currentValues = {};
-    }
-
-    connectedCallback() {
-        this.renderSkeleton();
-        this.fetchSchema();
-        this.initSpeechRecognition();
-    }
-
-    // --- 1. FETCH SCHEMA FROM BACKEND ---
-    async fetchSchema() {
-        try {
-            const res = await fetch(`http://127.0.0.1:8000/schema/${this.formId}`);
-            if (!res.ok) throw new Error('Schema load failed');
-            this.schema = await res.json();
-            this.renderForm();
-        } catch (err) {
-            console.error('[Awaz] Error loading schema:', err);
-            this.renderError('Could not load scholarship form.');
-        }
-    }
-
-    // --- 2. INITIALIZE SPEECH RECOGNITION ---
-    initSpeechRecognition() {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) {
-            console.warn('[Awaz] Web Speech API not supported in this browser.');
-            return;
-        }
-
-        this.recognition = new SpeechRecognition();
-        this.recognition.continuous = false;
-        this.recognition.interimResults = false;
-
-        const langMap = {
-            'hi': 'hi-IN',
-            'as': 'as-IN',
-            'en': 'en-IN'
-        };
-        this.recognition.lang = langMap[this.selectedLanguage] || 'hi-IN';
-
-        this.recognition.onstart = () => {
-            this.isListening = true;
-            this.updateMicUI(true, 'Listening... Speak clearly');
-        };
-
-        this.recognition.onresult = async (event) => {
-            const transcript = event.results[0][0].transcript;
-            this.updateMicUI(false, `Heard: "${transcript}"`);
-            await this.processVoiceInput(transcript);
-        };
-
-        this.recognition.onerror = (event) => {
-            console.error('[Awaz] Speech error:', event.error);
+(function () {
+    class AwazWidget extends HTMLElement {
+        constructor() {
+            super();
+            this.attachShadow({ mode: 'open' });
+            this.currentLang = 'hi';
+            this.schema = null;
+            this.recognition = null;
             this.isListening = false;
-            this.updateMicUI(false, 'Voice recognition error. Try again.');
-        };
+        }
 
-        this.recognition.onend = () => {
+        async connectedCallback() {
+            this.renderLayout();
+            await this.loadSchema();
+            this.setupEventListeners();
+            this.initSpeechRecognition();
+        }
+
+        renderLayout() {
+            this.shadowRoot.innerHTML = `
+                <style>
+                    .widget-container {
+                        font-family: system-ui, -apple-system, sans-serif;
+                        background: #ffffff;
+                        border-radius: 12px;
+                        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+                        width: 100%;
+                        max-width: 480px;
+                        margin: 0 auto;
+                        overflow: hidden;
+                        border: 1px solid #e2e8f0;
+                    }
+                    .header {
+                        background: #0f172a;
+                        color: #ffffff;
+                        padding: 16px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .header h3 {
+                        margin: 0;
+                        font-size: 16px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+                    .header select {
+                        background: #1e293b;
+                        color: white;
+                        border: 1px solid #334155;
+                        padding: 6px 10px;
+                        border-radius: 6px;
+                        outline: none;
+                        cursor: pointer;
+                    }
+                    .body-content {
+                        padding: 20px;
+                    }
+                    .mic-section {
+                        text-align: center;
+                        margin-bottom: 20px;
+                    }
+                    .mic-btn {
+                        background: #2563eb;
+                        color: white;
+                        border: none;
+                        width: 56px;
+                        height: 56px;
+                        border-radius: 50%;
+                        cursor: pointer;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+                        transition: transform 0.2s, background 0.2s;
+                    }
+                    .mic-btn:hover {
+                        transform: scale(1.05);
+                    }
+                    .mic-btn.listening {
+                        background: #dc2626;
+                        animation: pulse 1.5s infinite;
+                    }
+                    @keyframes pulse {
+                        0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+                        70% { box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+                        100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+                    }
+                    .mic-status {
+                        font-size: 13px;
+                        color: #64748b;
+                        margin-top: 8px;
+                        font-style: italic;
+                    }
+                    .form-fields {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 14px;
+                        max-height: 350px;
+                        overflow-y: auto;
+                        padding-right: 4px;
+                    }
+                    .field-group {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 6px;
+                    }
+                    .field-group label {
+                        font-size: 13px;
+                        font-weight: 600;
+                        color: #334155;
+                    }
+                    .field-group input, .field-group select {
+                        padding: 10px;
+                        border: 1px solid #cbd5e1;
+                        border-radius: 6px;
+                        font-size: 14px;
+                        outline: none;
+                    }
+                    .submit-btn {
+                        background: #0f172a;
+                        color: white;
+                        border: none;
+                        width: 100%;
+                        padding: 12px;
+                        border-radius: 8px;
+                        font-weight: 600;
+                        margin-top: 16px;
+                        cursor: pointer;
+                    }
+                    .submit-btn:hover {
+                        background: #1e293b;
+                    }
+                </style>
+
+                <div class="widget-container">
+                    <div class="header">
+                        <h3>🎙️ Awaz: Voice Assistant</h3>
+                        <select id="langSelect">
+                            <option value="hi" selected>हिंदी (Hindi)</option>
+                            <option value="en">English</option>
+                            <option value="as">অসমীয়া (Assamese)</option>
+                        </select>
+                    </div>
+                    <div class="body-content">
+                        <div class="mic-section">
+                            <button class="mic-btn" id="micBtn" title="Click to speak">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v1a7 7 0 0 1-14 0v-1"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                            </button>
+                            <div class="mic-status" id="micStatus">Tap microphone to speak</div>
+                        </div>
+                        <div class="form-fields" id="formFieldsContainer">Loading schema...</div>
+                        <button class="submit-btn" id="submitBtn">Review & Submit</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        async loadSchema() {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/schema');
+                const data = await response.json();
+                this.schema = data.fields || data;
+                this.renderFields();
+            } catch (err) {
+                console.error("Failed to load schema:", err);
+                const container = this.shadowRoot.getElementById('formFieldsContainer');
+                container.innerHTML = '<span style="color: red; font-size: 13px;">Backend connection failed. Ensure Uvicorn is running.</span>';
+            }
+        }
+
+        renderFields() {
+            const container = this.shadowRoot.getElementById('formFieldsContainer');
+            if (!this.schema) return;
+
+            container.innerHTML = '';
+            const fieldsArray = Array.isArray(this.schema) ? this.schema : Object.values(this.schema);
+
+            fieldsArray.forEach(field => {
+                const group = document.createElement('div');
+                group.className = 'field-group';
+
+                const label = document.createElement('label');
+                let labelText = field.label;
+                if (typeof field.label === 'object' && field.label !== null) {
+                    labelText = field.label[this.currentLang] || field.label['en'] || Object.values(field.label)[0];
+                }
+                label.textContent = `${labelText} ${field.required ? '*' : ''}`;
+                group.appendChild(label);
+
+                if (field.type === 'select' || (field.options && field.options.length > 0)) {
+                    const select = document.createElement('select');
+                    select.id = `field_${field.name}`;
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = "";
+                    defaultOpt.textContent = "-- Select --";
+                    select.appendChild(defaultOpt);
+
+                    if (field.options) {
+                        field.options.forEach(opt => {
+                            const option = document.createElement('option');
+                            option.value = typeof opt === 'object' ? opt.value : opt;
+                            
+                            let optLabel = opt;
+                            if (typeof opt === 'object' && opt.label) {
+                                optLabel = opt.label[this.currentLang] || opt.label['en'] || opt.value;
+                            }
+                            option.textContent = optLabel;
+                            select.appendChild(option);
+                        });
+                    }
+                    group.appendChild(select);
+                } else {
+                    const input = document.createElement('input');
+                    input.type = field.type || 'text';
+                    input.id = `field_${field.name}`;
+                    
+                    let phText = "Speak to fill...";
+                    if (field.placeholder) {
+                        if (typeof field.placeholder === 'object') {
+                            phText = field.placeholder[this.currentLang] || field.placeholder['en'] || "Speak to fill...";
+                        } else {
+                            phText = field.placeholder;
+                        }
+                    }
+                    input.placeholder = phText;
+                    group.appendChild(input);
+                }
+
+                container.appendChild(group);
+            });
+        }
+
+        initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.warn("Speech Recognition API not supported in this browser.");
+                return;
+            }
+
+            this.recognition = new SpeechRecognition();
+            this.recognition.continuous = false;
+            this.recognition.interimResults = false;
+
+            this.recognition.onstart = () => {
+                this.isListening = true;
+                const micBtn = this.shadowRoot.getElementById('micBtn');
+                const status = this.shadowRoot.getElementById('micStatus');
+                micBtn.classList.add('listening');
+                status.textContent = "Listening... Speak now";
+            };
+
+            this.recognition.onresult = async (event) => {
+                const transcript = event.results[0][0].transcript;
+                const status = this.shadowRoot.getElementById('micStatus');
+                status.textContent = `Heard: "${transcript}"`;
+                
+                // Send transcript to backend parse API
+                await this.sendTranscriptToBackend(transcript);
+            };
+
+            this.recognition.onerror = (event) => {
+                console.error("Speech recognition error", event.error);
+                const status = this.shadowRoot.getElementById('micStatus');
+                status.textContent = "Error occurred. Try again.";
+                this.stopListeningUI();
+            };
+
+            this.recognition.onend = () => {
+                this.stopListeningUI();
+            };
+        }
+
+        stopListeningUI() {
             this.isListening = false;
-            this.updateMicUI(false, 'Tap microphone to speak');
-        };
-    }
-
-    // --- 3. PROCESS VOICE & CALL BACKEND ---
-    async processVoiceInput(transcript) {
-        // Read current filled values from form inputs
-        this.syncCurrentValues();
-
-        try {
-            const res = await fetch('http://127.0.0.1:8000/extract', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    form_id: this.formId,
-                    transcript: transcript,
-                    current_values: this.currentValues,
-                    language: this.selectedLanguage
-                })
-            });
-
-            const data = await res.json();
-            if (data.status === 'success' && data.fields) {
-                this.populateFields(data.fields);
-                this.handleConversationalFeedback();
+            const micBtn = this.shadowRoot.getElementById('micBtn');
+            const status = this.shadowRoot.getElementById('micStatus');
+            if (micBtn) micBtn.classList.remove('listening');
+            if (status && status.textContent.includes("Listening")) {
+                status.textContent = "Tap microphone to speak";
             }
-        } catch (err) {
-            console.error('[Awaz] Extraction API error:', err);
-            this.showStatusAlert('Failed to parse voice input.', 'error');
-        }
-    }
-
-    // --- 4. CONVERSATIONAL FEEDBACK & CONTINUOUS MIC LOOP ---
-    handleConversationalFeedback() {
-        this.syncCurrentValues();
-        
-        if (!this.schema || !this.schema.fields) return;
-
-        // Find the first required field that is still empty
-        const missingField = this.schema.fields.find(f => f.required && !this.currentValues[f.id]);
-
-        if (missingField) {
-            const label = missingField.label || missingField.id;
-            let promptText = '';
-
-            if (this.selectedLanguage === 'hi') {
-                promptText = `कृपया अपना ${label} बताएं।`;
-            } else if (this.selectedLanguage === 'as') {
-                promptText = `অনুগ্ৰহ কৰি আপোনাৰ ${label} দিয়ক।`;
-            } else {
-                promptText = `Please provide your ${label}.`;
-            }
-
-            this.showStatusAlert(`Missing: ${label}`, 'info');
-            this.speakText(promptText, () => {
-                // Turn mic back on automatically after speaking prompt
-                this.toggleMic();
-            });
-        } else {
-            const successMsg = this.selectedLanguage === 'hi' 
-                ? 'सभी विवरण भर दिए गए हैं! समीक्षा करें और सबमिट करें।' 
-                : 'All fields filled successfully!';
-            this.showStatusAlert(successMsg, 'success');
-            this.speakText(successMsg);
-        }
-    }
-
-    // --- 5. TEXT-TO-SPEECH (TTS) SYNTHESIS ---
-    speakText(text, onEndCallback = null) {
-        if (!('speechSynthesis' in window)) return;
-
-        window.speechSynthesis.cancel(); // Stop any ongoing speech
-        const utterance = new SpeechSynthesisUtterance(text);
-        
-        const langMap = { 'hi': 'hi-IN', 'as': 'as-IN', 'en': 'en-IN' };
-        utterance.lang = langMap[this.selectedLanguage] || 'hi-IN';
-
-        if (onEndCallback) {
-            utterance.onend = onEndCallback;
         }
 
-        window.speechSynthesis.speak(utterance);
-    }
-
-    // Sync input values from DOM to state
-    syncCurrentValues() {
-        const inputs = this.shadowRoot.querySelectorAll('.form-field');
-        inputs.forEach(input => {
-            const fieldId = input.getAttribute('data-field-id');
-            if (fieldId && input.value) {
-                this.currentValues[fieldId] = input.value;
-            }
-        });
-    }
-
-    // Populate extracted values into form inputs
-    populateFields(extractedFields) {
-        Object.entries(extractedFields).forEach(([fieldId, item]) => {
-            const input = this.shadowRoot.querySelector(`[data-field-id="${fieldId}"]`);
-            if (input && item.value) {
-                input.value = item.value;
-                this.currentValues[fieldId] = item.value;
-                
-                // Highlight input field visually
-                input.classList.add('updated-field');
-                setTimeout(() => input.classList.remove('updated-field'), 2000);
-            }
-        });
-    }
-
-    toggleMic() {
-        if (!this.recognition) {
-            alert('Speech Recognition is not supported in this browser. Please use Chrome or Edge.');
-            return;
-        }
-
-        if (this.isListening) {
-            this.recognition.stop();
-        } else {
-            const langMap = { 'hi': 'hi-IN', 'as': 'as-IN', 'en': 'en-IN' };
-            this.recognition.lang = langMap[this.selectedLanguage] || 'hi-IN';
-            this.recognition.start();
-        }
-    }
-
-    updateMicUI(active, text) {
-        const micBtn = this.shadowRoot.querySelector('#micBtn');
-        const statusText = this.shadowRoot.querySelector('#statusText');
-
-        if (micBtn) {
-            if (active) micBtn.classList.add('recording');
-            else micBtn.classList.remove('recording');
-        }
-        if (statusText) statusText.textContent = text;
-    }
-
-    showStatusAlert(text, type = 'success') {
-        const alertBox = this.shadowRoot.querySelector('#alertBox');
-        if (alertBox) {
-            alertBox.textContent = text;
-            alertBox.className = `alert-box alert-${type}`;
-            alertBox.style.display = 'block';
-        }
-    }
-
-    // --- 6. RENDER DYNAMIC SHADOW DOM UI ---
-    renderSkeleton() {
-        this.shadowRoot.innerHTML = `
-            <style>
-                :host {
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                    display: block;
-                    max-width: 480px;
-                    margin: 0 auto;
-                }
-                .widget-card {
-                    background: #ffffff;
-                    border-radius: 12px;
-                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-                    overflow: hidden;
-                    border: 1px solid #e1e8ed;
-                }
-                .widget-header {
-                    background: #0f172a;
-                    color: #ffffff;
-                    padding: 16px 20px;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-                .widget-title {
-                    font-size: 1.1rem;
-                    font-weight: 700;
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                }
-                .lang-select {
-                    background: #1e293b;
-                    color: #ffffff;
-                    border: 1px solid #334155;
-                    border-radius: 6px;
-                    padding: 6px 10px;
-                    font-size: 0.85rem;
-                    cursor: pointer;
-                }
-                .mic-container {
-                    padding: 24px 20px 16px 20px;
-                    text-align: center;
-                    background: #f8fafc;
-                    border-bottom: 1px solid #e2e8f0;
-                }
-                .mic-btn {
-                    width: 72px;
-                    height: 72px;
-                    border-radius: 50%;
-                    background: #2563eb;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    display: inline-flex;
-                    justify-content: center;
-                    align-items: center;
-                    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-                    transition: all 0.2s ease;
-                }
-                .mic-btn:hover { transform: scale(1.05); }
-                .mic-btn.recording {
-                    background: #dc2626;
-                    animation: pulse 1.5s infinite;
-                }
-                @keyframes pulse {
-                    0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
-                    70% { box-shadow: 0 0 0 16px rgba(220, 38, 38, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
-                }
-                .status-text {
-                    margin-top: 12px;
-                    font-size: 0.9rem;
-                    color: #64748b;
-                    font-style: italic;
-                }
-                .alert-box {
-                    margin: 16px 20px 0 20px;
-                    padding: 10px 14px;
-                    border-radius: 6px;
-                    font-size: 0.85rem;
-                    font-weight: 500;
-                    display: none;
-                }
-                .alert-success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-                .alert-info { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-                .alert-error { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-                
-                .form-body { padding: 20px; }
-                .form-group { margin-bottom: 16px; }
-                .form-group label {
-                    display: block;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    color: #334155;
-                    margin-bottom: 6px;
-                }
-                .form-field {
-                    width: 100%;
-                    box-sizing: border-box;
-                    padding: 10px 12px;
-                    border: 1px solid #cbd5e1;
-                    border-radius: 6px;
-                    font-size: 0.95rem;
-                    transition: border-color 0.2s;
-                }
-                .form-field:focus {
-                    outline: none;
-                    border-color: #2563eb;
-                    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-                }
-                .updated-field {
-                    border-color: #16a34a !important;
-                    background-color: #f0fdf4;
-                }
-                .submit-btn {
-                    width: 100%;
-                    padding: 12px;
-                    background: #0f172a;
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    font-weight: 600;
-                    font-size: 1rem;
-                    cursor: pointer;
-                    margin-top: 10px;
-                }
-                .submit-btn:hover { background: #1e293b; }
-            </style>
-
-            <div class="widget-card">
-                <div class="widget-header">
-                    <div class="widget-title">🎙️ Awaz: Voice Assistant</div>
-                    <select id="langSelect" class="lang-select">
-                        <option value="hi">हिंदी (Hindi)</option>
-                        <option value="as">অসমীয়া (Assamese)</option>
-                        <option value="en">English</option>
-                    </select>
-                </div>
-
-                <div class="mic-container">
-                    <button id="micBtn" class="mic-btn">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                        </svg>
-                    </button>
-                    <div id="statusText" class="status-text">Tap microphone to speak</div>
-                </div>
-
-                <div id="alertBox" class="alert-box"></div>
-                <div id="formBody" class="form-body">Loading schema...</div>
-            </div>
-        `;
-
-        this.bindGlobalEvents();
-    }
-
-    bindGlobalEvents() {
-        const micBtn = this.shadowRoot.querySelector('#micBtn');
-        const langSelect = this.shadowRoot.querySelector('#langSelect');
-
-        if (micBtn) micBtn.addEventListener('click', () => this.toggleMic());
-        if (langSelect) {
-            langSelect.addEventListener('change', (e) => {
-                this.selectedLanguage = e.target.value;
-                if (this.recognition) {
-                    const langMap = { 'hi': 'hi-IN', 'as': 'as-IN', 'en': 'en-IN' };
-                    this.recognition.lang = langMap[this.selectedLanguage];
-                }
-                this.handleConversationalFeedback();
-            });
-        }
-    }
-
-    renderForm() {
-        const formBody = this.shadowRoot.querySelector('#formBody');
-        if (!this.schema || !this.schema.fields) {
-            formBody.innerHTML = '<div>No form fields available.</div>';
-            return;
-        }
-
-        let html = '<form id="awazDynamicForm" onsubmit="return false;">';
-
-        this.schema.fields.forEach(field => {
-            const requiredMark = field.required ? ' *' : '';
-            html += `<div class="form-group">
-                <label>${field.label}${requiredMark}</label>`;
-
-            if (field.type === 'select') {
-                html += `<select class="form-field" data-field-id="${field.id}" name="${field.id}">
-                    <option value="">-- Select --</option>`;
-                (field.options || []).forEach(opt => {
-                    html += `<option value="${opt}">${opt}</option>`;
+        async sendTranscriptToBackend(transcript) {
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transcript: transcript, language: this.currentLang })
                 });
-                html += `</select>`;
-            } else {
-                html += `<input 
-                    type="${field.type || 'text'}" 
-                    class="form-field" 
-                    data-field-id="${field.id}" 
-                    name="${field.id}" 
-                    placeholder="Speak to fill..." />`;
+                const result = await response.json();
+                if (result.success && result.data) {
+                    this.populateFormFields(result.data);
+                }
+            } catch (err) {
+                console.error("Failed to parse transcript via backend:", err);
             }
+        }
 
-            html += `</div>`;
-        });
+        populateFormFields(data) {
+            // Automatically fill form elements based on backend keys
+            Object.keys(data).forEach(key => {
+                const fieldEl = this.shadowRoot.getElementById(`field_${key}`);
+                if (fieldEl) {
+                    fieldEl.value = data[key];
+                }
+            });
+        }
 
-        html += `<button type="button" id="submitBtn" class="submit-btn">Review & Submit</button></form>`;
-        formBody.innerHTML = html;
+        setupEventListeners() {
+            const langSelect = this.shadowRoot.getElementById('langSelect');
+            langSelect.addEventListener('change', (e) => {
+                this.currentLang = e.target.value;
+                if (this.recognition) {
+                    // Map widget language codes to speech recognition locale codes
+                    const locales = { 'hi': 'hi-IN', 'en': 'en-US', 'as': 'as-IN' };
+                    this.recognition.lang = locales[this.currentLang] || 'hi-IN';
+                }
+                this.renderFields();
+            });
 
-        // Add submit button listener (Step 6)
-        const submitBtn = this.shadowRoot.querySelector('#submitBtn');
-        if (submitBtn) {
-            submitBtn.addEventListener('click', () => {
-                this.syncCurrentValues();
-                alert('Form submitted successfully!\n' + JSON.stringify(this.currentValues, null, 2));
+            const micBtn = this.shadowRoot.getElementById('micBtn');
+            micBtn.addEventListener('click', () => {
+                if (!this.recognition) {
+                    alert("Speech Recognition is not supported in your current browser. Try Google Chrome.");
+                    return;
+                }
+                if (this.isListening) {
+                    this.recognition.stop();
+                } else {
+                    const locales = { 'hi': 'hi-IN', 'en': 'en-US', 'as': 'as-IN' };
+                    this.recognition.lang = locales[this.currentLang] || 'hi-IN';
+                    this.recognition.start();
+                }
             });
         }
     }
 
-    renderError(msg) {
-        const formBody = this.shadowRoot.querySelector('#formBody');
-        if (formBody) formBody.innerHTML = `<div style="color:red;">${msg}</div>`;
-    }
-}
-
-customElements.define('awaz-widget', AwazWidget);
+    customElements.define('awaz-widget', AwazWidget);
+})();

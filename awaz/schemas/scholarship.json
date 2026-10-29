@@ -1,78 +1,60 @@
 {
-  "formId": "scholarship",
-  "title": {
-    "en": "Scholarship Application",
-    "hi": "छात्रवृत्ति आवेदन",
-    "as": "ছাত্ৰবৃত্তি আবেদন"
-  },
   "fields": [
     {
-      "id": "name",
+      "name": "full_name",
       "type": "text",
-      "required": true,
       "label": {
-        "en": "Full Name",
         "hi": "पूरा नाम",
+        "en": "Full Name",
         "as": "সম্পূৰ্ণ নাম"
-      }
-    },
-    {
-      "id": "phone",
-      "type": "phone",
-      "required": true,
-      "label": {
-        "en": "Phone Number",
-        "hi": "फ़ोन नंबर",
-        "as": "ফোন নম্বৰ"
       },
-      "rules": {
-        "pattern": "^[6-9]\\d{9}$"
-      }
-    },
-    {
-      "id": "dob",
-      "type": "date",
       "required": true,
-      "label": {
-        "en": "Date of Birth",
-        "hi": "जन्म तिथि",
-        "as": "জন্ম তারিখ"
-      },
-      "rules": {
-        "minAge": 16,
-        "maxAge": 40
+      "placeholder": {
+        "hi": "अपना पूरा नाम बोलें...",
+        "en": "Speak your full name...",
+        "as": "আপোনাৰ সম্পূৰ্ণ নাম কওক..."
       }
     },
     {
-      "id": "income",
-      "type": "number",
-      "required": true,
-      "label": {
-        "en": "Annual Family Income (₹)",
-        "hi": "वार्षिक पारिवारिक आय",
-        "as": "বাৰ্ষিক পৰিয়ালৰ উপাৰ্জন"
-      },
-      "rules": {
-        "min": 0,
-        "max": 10000000
-      }
-    },
-    {
-      "id": "district",
+      "name": "category",
       "type": "select",
-      "required": true,
       "label": {
-        "en": "District",
-        "hi": "ज़िला",
-        "as": "জিলা"
+        "hi": "श्रेणी",
+        "en": "Category",
+        "as": "শ্ৰেণী"
       },
+      "required": true,
       "options": [
-        "Kamrup Metropolitan",
-        "Barpeta",
-        "Jorhat",
-        "Dibrugarh",
-        "Cachar"
+        {"value": "general", "label": {"hi": "सामान्य (General)", "en": "General", "as": "জেনেৰেল"}},
+        {"value": "obc", "label": {"hi": "ओबीसी (OBC)", "en": "OBC", "as": "অ’বিচি"}},
+        {"value": "sc", "label": {"hi": "एससी (SC)", "en": "SC", "as": "এছ চি"}},
+        {"value": "st", "label": {"hi": "एसटी (ST)", "en": "ST", "as": "এছ টি"}}
       ]
+    },
+    {
+      "name": "dob",
+      "type": "date",
+      "label": {
+        "hi": "जन्म तिथि",
+        "en": "Date of Birth",
+        "as": "জন্ম তাৰিখ"
+      },
+      "required": true
+    },
+    {
+      "name": "annual_income",
+      "type": "number",
+      "label": {
+        "hi": "वार्षिक पारिवारिक आय",
+        "en": "Annual Family Income",
+        "as": "বাৰ্ষিক পৰিয়ালৰ আয়"
+      },
+      "required": true,
+      "placeholder": {
+        "hi": "आय बोलें (जैसे 250000)...",
+        "en": "Speak income...",
+        "as": "আয় কওক..."
+      }
     }
   ]
 }
