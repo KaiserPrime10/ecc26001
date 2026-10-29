@@ -1,8 +1,0 @@
-{
-  "summary": "I found {n} things to fix.",
-  "missing": "Please tell me your {field}.",
-  "invalid_format": "The {field} does not look right.",
-  "all_good": "Everything looks correct. Please review and submit.",
-  "required": "Please provide {field}.",
-  "invalid_option": "Choose a valid district from the list."
-}
