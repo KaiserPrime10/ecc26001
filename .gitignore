@@ -2,11 +2,15 @@
 venv/
 env/
 ENV/
+venv_backup
 
 # Python compiled bytecode
 __pycache__/
 *.py[cod]
 *$py.class
+awaz/backend/__pycache__/extract.cpython-312.pyc
+
+awaz/backend/__pycache__/main.cpython-312.pyc
 
 # Environment variables / secrets
 .env

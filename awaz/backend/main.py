@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import json
 import os
 
-# Safe import supporting both package and direct execution
 try:
     from .extract import verify_quotes_and_options
 except ImportError:
