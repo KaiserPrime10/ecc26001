@@ -25,3 +25,6 @@ Get guided step by step by a chatbot that explains each field
 Validate entries and catch errors before submission
 
 The assistant is built as a standalone component so that, in the future, it can be dropped into any portal as an embeddable widget
+
+Live deployment:
+https://awaz-ai-voice-assistant.onrender.com/
