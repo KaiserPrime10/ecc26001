@@ -1,1 +1,0 @@
-"""Scholarship demo backend package."""
