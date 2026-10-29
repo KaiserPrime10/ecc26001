@@ -23,6 +23,9 @@ STRICT EXTRACTION LAWS:
    - Convert spoken dates to YYYY-MM-DD.
    - Phone numbers must be 10 digits without spaces.
 5. If the user corrects a previously filled value, output the NEW corrected value.
+6. For names or multi-word text fields, the extracted "value" MUST contain the complete full name/phrase as spoken (e.g. "आतिफ आलम रहमान"), not just a single word or fragment.
+
+CURRENT FORM VALUES:
 
 CURRENT FORM VALUES:
 {current_values}

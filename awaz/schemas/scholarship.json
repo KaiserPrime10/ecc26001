@@ -1,0 +1,78 @@
+{
+  "formId": "scholarship",
+  "title": {
+    "en": "Scholarship Application",
+    "hi": "छात्रवृत्ति आवेदन",
+    "as": "ছাত্ৰবৃত্তি আবেদন"
+  },
+  "fields": [
+    {
+      "id": "name",
+      "type": "text",
+      "required": true,
+      "label": {
+        "en": "Full Name",
+        "hi": "पूरा नाम",
+        "as": "সম্পূৰ্ণ নাম"
+      }
+    },
+    {
+      "id": "phone",
+      "type": "phone",
+      "required": true,
+      "label": {
+        "en": "Phone Number",
+        "hi": "फ़ोन नंबर",
+        "as": "ফোন নম্বৰ"
+      },
+      "rules": {
+        "pattern": "^[6-9]\\d{9}$"
+      }
+    },
+    {
+      "id": "dob",
+      "type": "date",
+      "required": true,
+      "label": {
+        "en": "Date of Birth",
+        "hi": "जन्म तिथि",
+        "as": "জন্ম তারিখ"
+      },
+      "rules": {
+        "minAge": 16,
+        "maxAge": 40
+      }
+    },
+    {
+      "id": "income",
+      "type": "number",
+      "required": true,
+      "label": {
+        "en": "Annual Family Income (₹)",
+        "hi": "वार्षिक पारिवारिक आय",
+        "as": "বাৰ্ষিক পৰিয়ালৰ উপাৰ্জন"
+      },
+      "rules": {
+        "min": 0,
+        "max": 10000000
+      }
+    },
+    {
+      "id": "district",
+      "type": "select",
+      "required": true,
+      "label": {
+        "en": "District",
+        "hi": "ज़िला",
+        "as": "জিলা"
+      },
+      "options": [
+        "Kamrup Metropolitan",
+        "Barpeta",
+        "Jorhat",
+        "Dibrugarh",
+        "Cachar"
+      ]
+    }
+  ]
+}
